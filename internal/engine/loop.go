@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/zhouwu4740/gotinyclaw/internal/provider"
@@ -15,13 +16,17 @@ type AgentEngine struct {
 
 	// 工作区
 	WorkDir string
+
+	// EnableThinking
+	EnableThinking bool
 }
 
-func NewAgentEngine(provider provider.LLMProvider, registry tools.Registry, workDir string) *AgentEngine {
+func NewAgentEngine(provider provider.LLMProvider, registry tools.Registry, workDir string, enableThinking bool) *AgentEngine {
 	return &AgentEngine{
-		provider: provider,
-		registry: registry,
-		WorkDir:  workDir,
+		provider:       provider,
+		registry:       registry,
+		WorkDir:        workDir,
+		EnableThinking: enableThinking,
 	}
 }
 
@@ -36,8 +41,23 @@ func (e *AgentEngine) Run(ctx context.Context, userPrompt string) error {
 	turnCount := 0
 	for {
 		turnCount++
+		log.Println("[Engine] Starting turn ", turnCount)
 		// 获取可以使用的工具集
 		availableTools := e.registry.GetAvailableTools()
+
+		// 慢思考
+		if e.EnableThinking {
+			log.Println("[Engine] Thinking...")
+			response, err := e.provider.Generate(ctx, contextHistory, nil)
+			if err != nil {
+				return fmt.Errorf("thinking error: %w", err)
+			}
+
+			if response.Content != "" {
+				log.Printf("Assistant response: %s", response.Content)
+				contextHistory = append(contextHistory, *response)
+			}
+		}
 
 		response, err := e.provider.Generate(ctx, contextHistory, availableTools)
 		if err != nil {
