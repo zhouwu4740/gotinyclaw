@@ -22,13 +22,15 @@ func main() {
 	// 2. 注入伪造的工具注册表
 	registry := tools.NewRegistry()
 	registry.Register(tools.NewReadFileTool(workDir))
+	registry.Register(tools.NewWriteFileTool(workDir))
+	registry.Register(tools.NewBashTool(workDir))
 
 	// 3. 实例化并运行引擎，开启 EnableThinking = true (开启慢思考阶段！)
 	eng := engine.NewAgentEngine(llmProvider, registry, workDir, true)
 
 	// 设定测试任务
 	// prompt := "我想去北京跑步，帮我查查天气适合吗？"
-	prompt := "读取文件 go.mod 的内容"
+	prompt := "请列出当前目录结构，并统计文件和目录数量(忽略.git目录)"
 
 	err := eng.Run(context.Background(), prompt)
 	if err != nil {
