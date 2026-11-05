@@ -32,7 +32,8 @@ func main() {
 	// 设定测试任务
 	// prompt := "我想去北京跑步，帮我查查天气适合吗？"
 	// prompt := "请列出当前目录结构，并统计文件和目录数量(忽略.git目录)"
-	prompt := "将 scores.txt 文件中王五的分数修改为 99, 并反馈改前的分数是多少"
+	// prompt := "将 scores.txt 文件中王五的分数修改为 99, 并反馈改前的分数是多少"
+	prompt := "并发读取docs目录下的所有文件，将内容写入该目录下的 all.txt 文件"
 
 	err := eng.Run(context.Background(), prompt)
 	if err != nil {
