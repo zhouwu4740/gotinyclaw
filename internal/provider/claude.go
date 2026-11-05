@@ -45,6 +45,10 @@ func (p *ClaudeProvider) Generate(ctx context.Context, msgs []schema.Message, av
 					anthropic.NewTextBlock(msg.Content),
 				))
 			}
+		case schema.RoleTool:
+			anthropicMsgs = append(anthropicMsgs, anthropic.NewUserMessage(
+				anthropic.NewToolResultBlock(msg.ToolCallID, msg.Content, false),
+			))
 		case schema.RoleAssistant:
 			var blocks []anthropic.ContentBlockParamUnion
 			if msg.Content != "" {

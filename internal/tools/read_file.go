@@ -23,7 +23,7 @@ func (r *ReadFileTool) Name() string {
 // Definition implements [BaseTool].
 func (r *ReadFileTool) Definition() schema.ToolDefinition {
 	return schema.ToolDefinition{
-		Name:        "read_file",
+		Name:        r.Name(),
 		Description: "Read the content of a file.",
 		InputSchema: map[string]any{
 			"type": "object",

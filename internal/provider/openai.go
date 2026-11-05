@@ -44,6 +44,9 @@ func (p *OpenAIProvider) Generate(ctx context.Context, msgs []schema.Message, av
 				openaiMsgs = append(openaiMsgs, openai.UserMessage(msg.Content))
 			}
 
+		case schema.RoleTool:
+			openaiMsgs = append(openaiMsgs, openai.ToolMessage(msg.Content, msg.ToolCallID))
+
 		case schema.RoleAssistant:
 			astParam := openai.ChatCompletionAssistantMessageParam{}
 
