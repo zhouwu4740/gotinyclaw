@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/zhouwu4740/gotinyclaw/internal/provider"
 	"github.com/zhouwu4740/gotinyclaw/internal/schema"
@@ -77,22 +78,30 @@ func (e *AgentEngine) Run(ctx context.Context, userPrompt string) error {
 
 		log.Printf("[Engine] Model request to execute %d tools", len(response.ToolCalls))
 
-		for _, toolCall := range response.ToolCalls {
-			result := e.registry.Execute(ctx, toolCall)
-			if result.IsError {
-				log.Printf("[Engine] Tool %s returned an error: %s", toolCall.Name, result.Output)
-			} else {
-				log.Printf("[Engine] Tool %s returned: %s", toolCall.Name, result.Output)
-			}
+		observationMsgs := make([]schema.Message, len(response.ToolCalls))
 
-			observationMsg := schema.Message{
-				Role:       schema.RoleTool,
-				Content:    result.Output,
-				ToolCallID: toolCall.ID,
-			}
-			contextHistory = append(contextHistory, observationMsg)
+		var wg sync.WaitGroup
+
+		for i, toolCall := range response.ToolCalls {
+			wg.Add(1) // Add a wait group for each tool call
+			go func(idx int, call schema.ToolCall) {
+				defer wg.Done()
+				result := e.registry.Execute(ctx, toolCall)
+				if result.IsError {
+					log.Printf("[Engine] Tool %s returned an error: %s", call.Name, result.Output)
+				} else {
+					log.Printf("[Engine] Tool %s returned: %s", call.Name, result.Output)
+				}
+				observationMsgs[idx] = schema.Message{
+					Role:       schema.RoleTool,
+					Content:    result.Output,
+					ToolCallID: call.ID,
+				}
+			}(i, toolCall)
 		}
 
+		wg.Wait()
+		contextHistory = append(contextHistory, observationMsgs...)
 	}
 	return nil
 }
