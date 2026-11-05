@@ -31,7 +31,7 @@ func NewAgentEngine(provider provider.LLMProvider, registry tools.Registry, work
 	}
 }
 
-func (e *AgentEngine) Run(ctx context.Context, userPrompt string) error {
+func (e *AgentEngine) Run(ctx context.Context, userPrompt string, reporter Reporter) error {
 	log.Printf("Received user prompt: %s", userPrompt)
 
 	contextHistory := []schema.Message{
@@ -49,10 +49,16 @@ func (e *AgentEngine) Run(ctx context.Context, userPrompt string) error {
 		// 慢思考
 		if e.EnableThinking {
 			log.Println("[Engine] Thinking...")
+			// Notify the reporter that the engine is thinking
+			if reporter != nil {
+				reporter.OnThinking(ctx)
+			}
 			response, err := e.provider.Generate(ctx, contextHistory, nil)
 			if err != nil {
 				return fmt.Errorf("thinking error: %w", err)
 			}
+			// Notify the reporter of the agent's thought
+			reporter.OnThought(ctx, response.Content)
 
 			if response.Content != "" {
 				log.Printf("Assistant response: %s", response.Content)
@@ -67,16 +73,13 @@ func (e *AgentEngine) Run(ctx context.Context, userPrompt string) error {
 
 		contextHistory = append(contextHistory, *response)
 
-		if response.Content != "" {
-			log.Printf("Assistant response: %s", response.Content)
+		if response.Content != "" && reporter != nil {
+			reporter.OnMessage(ctx, response.Content)
 		}
 
 		if len(response.ToolCalls) == 0 {
-			log.Println("[Engine] No tool calls in response, ending conversation.")
 			break
 		}
-
-		log.Printf("[Engine] Model request to execute %d tools", len(response.ToolCalls))
 
 		observationMsgs := make([]schema.Message, len(response.ToolCalls))
 
@@ -86,11 +89,12 @@ func (e *AgentEngine) Run(ctx context.Context, userPrompt string) error {
 			wg.Add(1) // Add a wait group for each tool call
 			go func(idx int, call schema.ToolCall) {
 				defer wg.Done()
+				reporter.OnToolCall(ctx, call.Name, string(call.Arguments))
 				result := e.registry.Execute(ctx, toolCall)
 				if result.IsError {
-					log.Printf("[Engine] Tool %s returned an error: %s", call.Name, result.Output)
+					reporter.OnToolResult(ctx, call.Name, result.Output, true)
 				} else {
-					log.Printf("[Engine] Tool %s returned: %s", call.Name, result.Output)
+					reporter.OnToolResult(ctx, call.Name, result.Output, false)
 				}
 				observationMsgs[idx] = schema.Message{
 					Role:       schema.RoleTool,
